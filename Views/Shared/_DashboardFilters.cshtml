@@ -1,0 +1,121 @@
+@model OcrDashboardMvc.Models.FilterModel
+
+<form method="get" action="@Url.Action("Index", "Home")" id="filterForm">
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <!-- From Date Filter -->
+        <div>
+            <label class="flex items-center gap-2 text-gray-700 mb-2">
+                <i data-lucide="calendar" class="w-4 h-4"></i>
+                Từ ngày
+            </label>
+            <div class="relative">
+                <input type="text" 
+                       name="FromDate" 
+                       id="fromDatePicker"
+                       value="@Model.FromDate" 
+                       placeholder="dd/MM/yyyy"
+                       class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       readonly />
+                <i data-lucide="calendar" class="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+            </div>
+        </div>
+
+        <!-- To Date Filter -->
+        <div>
+            <label class="flex items-center gap-2 text-gray-700 mb-2">
+                <i data-lucide="calendar" class="w-4 h-4"></i>
+                Đến ngày
+            </label>
+            <div class="relative">
+                <input type="text" 
+                       name="ToDate" 
+                       id="toDatePicker"
+                       value="@Model.ToDate" 
+                       placeholder="dd/MM/yyyy"
+                       class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       readonly />
+                <i data-lucide="calendar" class="w-4 h-4 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+            </div>
+        </div>
+
+        <!-- Template Filter -->
+        <div>
+            <label class="flex items-center gap-2 text-gray-700 mb-2">
+                <i data-lucide="file-text" class="w-4 h-4"></i>
+                Mẫu BCTC
+            </label>
+            <select name="Template" asp-for="Template"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">Tất cả</option>
+                <option value="TT200">TT200</option>
+                <option value="TT133">TT133</option>
+                <option value="TT133B01">TT133B01</option>
+                <option value="TT133B01A">TT133B01A</option>
+                <option value="TT133B01B">TT133B01B</option>
+                <option value="Unknown">Không xác định</option>
+            </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div>
+            <label class="flex items-center gap-2 text-gray-700 mb-2">
+                <i data-lucide="check-circle" class="w-4 h-4"></i>
+                Trạng thái OCR
+            </label>
+            <select name="Status" asp-for="Status"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="all">Tất cả</option>
+                <option value="success">Thành công</option>
+                <option value="failed">Thất bại</option>
+                <option value="manual">Manual</option>
+            </select>
+        </div>
+
+        <!-- Search Button -->
+        <div class="flex items-end">
+            <button type="submit" 
+                    class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors">
+                <i data-lucide="search" class="w-4 h-4"></i>
+                Tìm kiếm
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize Flatpickr for From Date
+        flatpickr("#fromDatePicker", {
+            dateFormat: "d/m/Y",
+            allowInput: false,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'],
+                    longhand: ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+                },
+                months: {
+                    shorthand: ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'],
+                    longhand: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+                }
+            }
+        });
+
+        // Initialize Flatpickr for To Date
+        flatpickr("#toDatePicker", {
+            dateFormat: "d/m/Y",
+            allowInput: false,
+            locale: {
+                firstDayOfWeek: 1,
+                weekdays: {
+                    shorthand: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'],
+                    longhand: ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy']
+                },
+                months: {
+                    shorthand: ['Th1', 'Th2', 'Th3', 'Th4', 'Th5', 'Th6', 'Th7', 'Th8', 'Th9', 'Th10', 'Th11', 'Th12'],
+                    longhand: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12']
+                }
+            }
+        });
+    });
+</script>

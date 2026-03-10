@@ -1,0 +1,191 @@
+@model OcrDashboardMvc.Models.HeatmapData
+
+@{
+    string GetHeatColor(double value, string metric)
+    {
+        // Giá trị 0 hiển thị màu xám nhạt
+        if (value == 0) return "bg-gray-200 text-gray-600";
+
+        if (metric == "accuracy")
+        {
+            if (value >= 90) return "bg-green-500 text-white";
+            if (value >= 80) return "bg-yellow-500 text-white";
+            return "bg-red-500 text-white";
+        }
+        else
+        {
+            // For time, lower is better
+            if (value <= 2.5) return "bg-green-500 text-white";
+            if (value <= 3.5) return "bg-yellow-500 text-white";
+            return "bg-red-500 text-white";
+        }
+    }
+
+    string GetPerformanceLabel(double value, string metric)
+    {
+        // Giá trị 0 hiển thị N/A
+        if (value == 0) return "N/A";
+
+        if (metric == "accuracy")
+        {
+            if (value >= 95) return "Tốt nhất";
+            if (value >= 90) return "Tốt";
+            if (value >= 80) return "TB";
+            return "Thấp";
+        }
+        else
+        {
+            if (value <= 2) return "Tốt nhất";
+            if (value <= 2.5) return "Tốt";
+            if (value <= 3.5) return "TB";
+            return "Thấp";
+        }
+    }
+
+    string GetTemplateDisplayName(string template)
+    {
+        return template == "Unknown" ? "Không xác định" : template;
+    }
+}
+
+<div class="bg-white rounded-lg border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <i data-lucide="grid-3x3" class="w-5 h-5 text-gray-700"></i>
+            <h3 class="text-gray-900">2. Heatmap hiệu suất OCR</h3>
+        </div>
+        <div class="text-xs text-gray-500 italic">
+            <i data-lucide="calendar" class="w-3 h-3 inline"></i>
+            Hiển thị tối đa 4 tháng gần nhất (lọc theo thời gian, tất cả mẫu BCTC)
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Accuracy Heatmap -->
+        <div>
+            <h4 class="text-gray-700 mb-3">Tỷ lệ chính xác theo kỳ & mẫu BCTC (%)</h4>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="border border-gray-300 bg-gray-100 p-2 text-left text-gray-700">
+                                Mẫu BCTC
+                            </th>
+                            @foreach (var period in Model.Periods)
+                            {
+                                <th class="border border-gray-300 bg-gray-100 p-2 text-center text-gray-700">
+                                    @period
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.Templates.Count; i++)
+                        {
+                            <tr>
+                                <td class="border border-gray-300 bg-gray-50 p-2 text-gray-900">
+                                    @GetTemplateDisplayName(Model.Templates[i])
+                                </td>
+                                @for (int j = 0; j < Model.Accuracy[i].Count; j++)
+                                {
+                                    var value = Model.Accuracy[i][j];
+                                    <td class="border border-gray-300 p-2 text-center transition-all hover:scale-105 @GetHeatColor(value, "accuracy")">
+                                        <div>@value%</div>
+                                        <div class="text-xs opacity-90 mt-1">
+                                            @GetPerformanceLabel(value, "accuracy")
+                                        </div>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Processing Time Heatmap -->
+        <div>
+            <h4 class="text-gray-700 mb-3">Thời gian xử lý theo kỳ & mẫu BCTC (s/trang)</h4>
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr>
+                            <th class="border border-gray-300 bg-gray-100 p-2 text-left text-gray-700">
+                                Mẫu BCTC
+                            </th>
+                            @foreach (var period in Model.Periods)
+                            {
+                                <th class="border border-gray-300 bg-gray-100 p-2 text-center text-gray-700">
+                                    @period
+                                </th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (int i = 0; i < Model.Templates.Count; i++)
+                        {
+                            <tr>
+                                <td class="border border-gray-300 bg-gray-50 p-2 text-gray-900">
+                                    @GetTemplateDisplayName(Model.Templates[i])
+                                </td>
+                                @for (int j = 0; j < Model.ProcessingTime[i].Count; j++)
+                                {
+                                    var value = Model.ProcessingTime[i][j];
+                                    <td class="border border-gray-300 p-2 text-center transition-all hover:scale-105 @GetHeatColor(value, "time")">
+                                        <div>@value s</div>
+                                        <div class="text-xs opacity-90 mt-1">
+                                            @GetPerformanceLabel(value, "time")
+                                        </div>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="mt-6 p-4 bg-gray-50 rounded-lg">
+        <h4 class="text-gray-700 mb-3">Quy ước màu hiệu suất</h4>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-green-500 rounded flex items-center justify-center text-white">
+                    ≥90%
+                </div>
+                <div>
+                    <div class="text-gray-900">Xanh lá</div>
+                    <div class="text-gray-600">Hiệu suất tốt (≥90%)</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-yellow-500 rounded flex items-center justify-center text-white">
+                    80-90%
+                </div>
+                <div>
+                    <div class="text-gray-900">Vàng</div>
+                    <div class="text-gray-600">Trung bình (80-90%)</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-red-500 rounded flex items-center justify-center text-white">
+                    &lt;80%
+                </div>
+                <div>
+                    <div class="text-gray-900">Đỏ</div>
+                    <div class="text-gray-600">Cần cải thiện (&lt;80%)</div>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gray-200 rounded flex items-center justify-center text-gray-600">
+                    0
+                </div>
+                <div>
+                    <div class="text-gray-900">Xám</div>
+                    <div class="text-gray-600">Không có dữ liệu</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,111 @@
+@model OcrDashboardMvc.Models.DashboardViewModel
+
+@{
+    string GetPerformanceColor(double value)
+    {
+        if (value >= 90) return "bg-green-500";
+        if (value >= 80) return "bg-yellow-500";
+        return "bg-red-500";
+    }
+
+    string GetPerformanceBadgeColor(double value)
+    {
+        if (value >= 90) return "bg-green-100 text-green-700";
+        if (value >= 80) return "bg-yellow-100 text-yellow-700";
+        return "bg-red-100 text-red-700";
+    }
+
+    string GetTemplateDisplayName(string template)
+    {
+        return template == "Unknown" ? "Không xác định" : template;
+    }
+}
+
+<div class="bg-white rounded-lg border border-gray-200 p-6">
+    <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+            <i data-lucide="file-text" class="w-5 h-5 text-gray-700"></i>
+            <h3 class="text-gray-900">
+                2. Phân tích theo mẫu BCTC
+            </h3>
+        </div>
+        <div class="text-xs text-gray-500 italic">
+            <i data-lucide="calendar" class="w-3 h-3 inline"></i>
+            Chỉ lọc theo thời gian (hiển thị tất cả mẫu BCTC)
+        </div>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-200">
+                    <th class="text-left py-3 px-4 text-gray-700 whitespace-nowrap">Mẫu BCTC</th>
+                    <th class="text-left py-3 px-4 text-gray-700 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="file-text" class="w-4 h-4"></i>
+                            Số lượng file
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 text-gray-700 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="circle-check-big" class="w-4 h-4"></i>
+                            Tỷ lệ thành công
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 text-gray-700 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="target" class="w-4 h-4"></i>
+                            Độ chính xác TB
+                        </div>
+                    </th>
+                    <th class="text-left py-3 px-4 text-gray-700 whitespace-nowrap">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="clock" class="w-4 h-4"></i>
+                            Thời gian xử lý TB
+                        </div>
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var template in Model.TemplateAnalysisData.Templates)
+                {
+                    <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td class="py-4 px-4">
+                            <span class="text-gray-900">@GetTemplateDisplayName(template.TemplateName)</span>
+                        </td>
+                        <td class="py-4 px-4">
+                            <span class="text-gray-900">@template.TotalFiles.ToString("N0")</span>
+                        </td>
+                        <td class="py-4 px-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 max-w-[120px]">
+                                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="h-full @GetPerformanceColor(template.SuccessRate) transition-all" style="width: @template.SuccessRate%;"></div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs @GetPerformanceBadgeColor(template.SuccessRate)">
+                                    @template.SuccessRate%
+                                </span>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 max-w-[120px]">
+                                    <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="h-full @GetPerformanceColor(template.AvgAccuracy) transition-all" style="width: @template.AvgAccuracy%;"></div>
+                                    </div>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs @GetPerformanceBadgeColor(template.AvgAccuracy)">
+                                    @template.AvgAccuracy%
+                                </span>
+                            </div>
+                        </td>
+                        <td class="py-4 px-4">
+                            <span class="text-gray-900">@template.AvgProcessingTime s</span>
+                            <span class="text-gray-500 ml-1">/trang</span>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

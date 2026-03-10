@@ -1,0 +1,143 @@
+@model OcrDashboardMvc.Models.DashboardViewModel
+
+@{
+    var licenseData = Model.LicenseData ?? new OcrDashboardMvc.Models.LicenseData { Used = 0, Total = 0, PercentUsed = 0, MonthlyUsage = new List<OcrDashboardMvc.Models.MonthlyLicenseUsage>() };
+
+    string GetQuotaColor(double percent)
+    {
+        if (percent >= 90) return "bg-red-500";
+        if (percent >= 80) return "bg-yellow-500";
+        return "bg-green-500";
+    }
+
+    string GetAlertColor(double percent)
+    {
+        if (percent >= 90) return "bg-red-50 border-red-200 text-red-700";
+        if (percent >= 80) return "bg-yellow-50 border-yellow-200 text-yellow-700";
+        return "bg-green-50 border-green-200 text-green-700";
+    }
+}
+
+<div class="bg-white rounded-lg border border-gray-200 p-6">
+    <h3 class="text-gray-900 mb-4">2. License OCR</h3>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- License Usage Stats -->
+        <div class="space-y-4">
+            <!-- License Used -->
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="key" class="w-5 h-5 text-blue-600"></i>
+                    <span class="text-gray-700">Số license đã sử dụng</span>
+                </div>
+                <div class="text-gray-900 text-xl font-medium">
+                    @licenseData.Used.ToString("N0") / @licenseData.Total.ToString("N0")
+                </div>
+            </div>
+
+            <!-- Quota Progress -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-gray-700">Quota sử dụng</span>
+                    <span class="text-gray-900">@licenseData.PercentUsed%</span>
+                </div>
+                <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
+                    <div class="h-full @GetQuotaColor(licenseData.PercentUsed) transition-all duration-500"
+                         style="width: @licenseData.PercentUsed%"></div>
+                </div>
+                <div class="flex items-center justify-between mt-2">
+                    <span class="text-gray-600">
+                        Đã dùng: @licenseData.PercentUsed%
+                    </span>
+                    <span class="text-gray-600">
+                        Còn lại: @((100 - licenseData.PercentUsed).ToString("F1"))%
+                    </span>
+                </div>
+            </div>
+
+            <!-- Alert -->
+            <div class="p-4 border rounded-lg @GetAlertColor(licenseData.PercentUsed)">
+                <div class="flex items-start gap-2">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 mt-0.5"></i>
+                    <div>
+                        <div class="mb-1 font-medium">Cảnh báo hạn mức</div>
+                        @if (licenseData.PercentUsed >= 90)
+                        {
+                            <p class="text-red-600">Đã sử dụng @licenseData.PercentUsed% quota. Cần bổ sung license ngay!</p>
+                        }
+                        else if (licenseData.PercentUsed >= 80)
+                        {
+                            <p class="text-yellow-700">Đã sử dụng @licenseData.PercentUsed% quota. Cần theo dõi và dự trù license.</p>
+                        }
+                        else
+                        {
+                            <p class="text-green-700">Quota còn @((100 - licenseData.PercentUsed).ToString("F1"))%. Hệ thống hoạt động tốt.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- YTD Trend Chart -->
+        <div>
+            <div class="flex items-center gap-2 mb-4">
+                <i data-lucide="trending-up" class="w-5 h-5 text-gray-700"></i>
+                <span class="text-gray-700">Xu hướng tiêu hao license theo tháng</span>
+            </div>
+            <div style="height: 250px;">
+                <canvas id="licenseYtdChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Lấy dữ liệu từ server-side
+         var monthlyUsageData = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(licenseData.MonthlyUsage));
+         // Chuẩn bị dữ liệu cho chart
+         var chartData = {
+             labels: monthlyUsageData.map(d => d.Month),
+             datasets: [{
+                 label: 'License Usage (Pages)',
+                 data: monthlyUsageData.map(d => d.Usage),
+                 borderColor: '#3b82f6',
+                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                 tension: 0.4,
+                 fill: true
+             }]
+         };
+
+           new Chart(document.getElementById('licenseYtdChart'), {
+               type: 'line',
+               data: chartData,
+               options: {
+                   responsive: true,
+                   maintainAspectRatio: false,
+                   plugins: {
+                       legend: {
+                           display: true,
+                           position: 'top'
+                       },
+                       tooltip: {
+                           callbacks: {
+                               label: function(context) {
+                                   return context.dataset.label + ': ' + context.parsed.y.toLocaleString() + ' pages';
+                               }
+                           }
+                       }
+                   },
+                   scales: {
+                       y: {
+                           beginAtZero: true,
+                           ticks: {
+                               callback: function(value) {
+                                   return value.toLocaleString();
+                               }
+                           }
+                       }
+                   }
+                   }
+                   });
+                   });
+</script>

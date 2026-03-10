@@ -1,0 +1,113 @@
+@model OcrDashboardMvc.Models.OcrOverviewStats
+
+@{
+    string GetPerformanceColor(double percentage)
+    {
+        if (percentage >= 90) return "text-green-600 bg-green-50";
+        if (percentage >= 80) return "text-yellow-600 bg-yellow-50";
+        return "text-red-600 bg-red-50";
+    }
+
+    string GetPerformanceBorderColor(double percentage)
+    {
+        if (percentage >= 90) return "border-green-200";
+        if (percentage >= 80) return "border-yellow-200";
+        return "border-red-200";
+    }
+}
+
+<div class="bg-white rounded-lg border border-gray-200 p-6">
+    <h3 class="text-gray-900 mb-4">1. Số lượng & chất lượng OCR</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Total Reports -->
+        <div class="p-4 rounded-lg border border-blue-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-blue-600 bg-blue-50">
+                    <i data-lucide="file-text" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">Tổng số BCTC tải lên</div>
+            <div class="text-gray-900">@Model.TotalReports.ToString("N0")</div>
+        </div>
+
+        <!-- OCR Success -->
+        <div class="p-4 rounded-lg border border-green-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-green-600 bg-green-50">
+                    <i data-lucide="check-circle" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">OCR thành công</div>
+            <div class="text-gray-900">@Model.OcrSuccess.ToString("N0")</div>
+        </div>
+
+        <!-- OCR Failed -->
+        <div class="p-4 rounded-lg border border-red-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-red-600 bg-red-50">
+                    <i data-lucide="x-circle" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">OCR thất bại</div>
+            <div class="text-gray-900">@Model.OcrFailed.ToString("N0")</div>
+        </div>
+
+        <!-- OCR Manual -->
+        <div class="p-4 rounded-lg border border-orange-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-orange-600 bg-orange-50">
+                    <i data-lucide="file-edit" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">OCR manual</div>
+            <div class="text-gray-900">@Model.OcrManual.ToString("N0")</div>
+        </div>
+
+        <!-- Total Pages -->
+        <div class="p-4 rounded-lg border border-purple-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-purple-600 bg-purple-50">
+                    <i data-lucide="file-stack" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">Tổng số trang</div>
+            <div class="text-gray-900">@Model.TotalPages.ToString("N0")</div>
+        </div>
+
+        <!-- Success Rate -->
+        <div class="p-4 rounded-lg border @GetPerformanceBorderColor(Model.SuccessRate) transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg @GetPerformanceColor(Model.SuccessRate)">
+                    <i data-lucide="target" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">Tỷ lệ OCR thành công</div>
+            <div class="text-gray-900">@Model.SuccessRate%</div>
+        </div>
+
+        <!-- Accuracy Rate -->
+        <div class="p-4 rounded-lg border @GetPerformanceBorderColor(Model.AccuracyRate) transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg @GetPerformanceColor(Model.AccuracyRate)">
+                    <i data-lucide="target" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">Tỷ lệ chính xác OCR</div>
+            <div class="text-gray-900">@Model.AccuracyRate%</div>
+        </div>
+
+        <!-- Avg Processing Speed -->
+        <div class="p-4 rounded-lg border border-indigo-200 transition-all hover:shadow-md">
+            <div class="flex items-start justify-between mb-2">
+                <div class="p-2 rounded-lg text-indigo-600 bg-indigo-50">
+                    <i data-lucide="zap" class="w-5 h-5"></i>
+                </div>
+            </div>
+            <div class="text-gray-600 mb-1">Tốc độ xử lý TB</div>
+            <div class="text-gray-900">@Model.AvgProcessingSpeed s</div>
+            <div class="text-gray-500 mt-1">giây/trang</div>
+        </div>
+
+    </div>
+</div>
