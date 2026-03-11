@@ -1,40 +1,62 @@
-ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239
 
-sudo apt update
+**#Access server**
 
-CPU + RAM: hstop
+`ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239`
 
-Disk: df -h
+`sudo apt update`
+
+**#CPU + RAM:** 
+
+`hstop`
+
+**#Disk:**
+
+`df -h`
+
+
 ------------
 
-#Test PostgreSQL:
+**#Test PostgreSQL:**
+
 `psql -h localhost -U postgres -d ocrmvcdatabase`
 
-#Test connection
+**#Test connection**
+
 `psql "host=localhost user=postgres password=123456 dbname=ocrmvcdatabase"`
 
 
-#Clone project từ GitHub
+**#Clone project từ GitHub**
+
 `git clone https://github.com/<your-repo>.git`
+
 `cd <your-repo>`
 
-#Kiểm tra .sln
+**#Kiểm tra .sln**
+
 `ls`
 
-#Restore package
+**#Restore package**
+
 `dotnet restore`
 
-#Build project
+**#Build project**
+
 `dotnet build`
 
-#Publish để chạy production:
+**#Publish để chạy production:**
+
 `dotnet publish -c Release -o publish`
+
 `cd publish`
 
-#Tắt terminal - mất session
+**#Tắt terminal - mất session**
+
 `dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5000" (http://18.143.165.239:5000)`
-#Nên dùng:
+
+**#Nên dùng - giữ session:**
+
 `nohup dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5000" &`
 
-#Sửa config
+**#Sửa config**
+
 `nano publish/appsettings.json`
