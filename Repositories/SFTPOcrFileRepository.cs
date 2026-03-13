@@ -25,17 +25,17 @@ namespace OcrDashboardMvc.Repositories
 
         public async Task<List<SFTPOcrFile>> GetAllAsync()
         {
-            return await _database.FetchAsync<SFTPOcrFile>("SELECT * FROM ocr_clos.sftpocrfile");
+            return await _database.FetchAsync<SFTPOcrFile>("SELECT * FROM public.ocr_requests"); //ocr_clos.sftpocrfile
         }
 
         public async Task<SFTPOcrFile?> GetByIdAsync(long id)
         {
-            return await _database.SingleOrDefaultAsync<SFTPOcrFile>("SELECT * FROM ocr_clos.sftpocrfile WHERE id = @0", id);
+            return await _database.SingleOrDefaultAsync<SFTPOcrFile>("SELECT * FROM public.ocr_requests WHERE id = @0", id);
         }
 
         public async Task<Page<SFTPOcrFile>> GetPagedAsync(long page, long itemsPerPage)
         {
-            return await _database.PageAsync<SFTPOcrFile>(page, itemsPerPage, "SELECT * FROM ocr_clos.sftpocrfile ORDER BY id DESC");
+            return await _database.PageAsync<SFTPOcrFile>(page, itemsPerPage, "SELECT * FROM public.ocr_requests ORDER BY id DESC");
         }
 
         public async Task<long> InsertAsync(SFTPOcrFile file)
@@ -55,7 +55,7 @@ namespace OcrDashboardMvc.Repositories
 
         public async Task<List<SFTPOcrFile>> GetByStatusAsync(int status)
         {
-            return await _database.FetchAsync<SFTPOcrFile>("SELECT * FROM ocr_clos.sftpocrfile WHERE status = @0", status);
+            return await _database.FetchAsync<SFTPOcrFile>("SELECT * FROM public.ocr_requests WHERE status = @0", status);
         }
     }
 }

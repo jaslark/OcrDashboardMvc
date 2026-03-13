@@ -1,4 +1,22 @@
 
+Cách sửa chuẩn trên Windows (PowerShell)
+
+Chạy lần lượt:
+
+icacls C:\Users\ADMIN\TrumVN.pem /inheritance:r
+icacls C:\Users\ADMIN\TrumVN.pem /remove "CodexSandboxUsers"
+icacls C:\Users\ADMIN\TrumVN.pem /grant:r ADMIN:R
+
+Sau đó kiểm tra:
+
+icacls C:\Users\ADMIN\TrumVN.pem
+
+Kết quả chỉ nên có kiểu như:
+
+ADMIN:(R)
+Sau đó SSH lại
+ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239
+
 **#Access server**
 
 `ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239`

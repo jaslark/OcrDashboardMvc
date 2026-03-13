@@ -18,8 +18,8 @@ namespace OcrDashboardMvc.Models
         {
       if (_database == null)
         {
-     _database = new Database(connectionString, "Npgsql");
-      }
+                _database = new PetaPoco.Database(connectionString, "Npgsql");
+            }
             return _database;
         }
 

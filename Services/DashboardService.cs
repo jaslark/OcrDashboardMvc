@@ -1,5 +1,5 @@
-﻿using OcrDashboardMvc.Models;
-using PetaPoco;
+﻿using OcrDashboardMvc.Database;
+using OcrDashboardMvc.Models;
 using System.Globalization;
 
 namespace OcrDashboardMvc.Services
@@ -32,11 +32,11 @@ namespace OcrDashboardMvc.Services
 
     public class DashboardService : IDashboardService
     {
-        private readonly IDatabase _database;
+        private readonly ISqlApiProxyDatabase _database;
         private readonly ILogger<DashboardService> _logger;
-        private const string TableName = "ocr_clos.sftpocrfile";
+        private const string TableName = "public.ocr_requests";
 
-        public DashboardService(IDatabase database, ILogger<DashboardService> logger)
+        public DashboardService(ISqlApiProxyDatabase database, ILogger<DashboardService> logger)
         {
             _database = database;
             _logger = logger;
@@ -101,7 +101,7 @@ namespace OcrDashboardMvc.Services
                   SUM(CASE WHEN circular IS NOT NULL THEN 1 ELSE 0 END) as ocr_manual,
                         COALESCE(SUM(pagecount), 0) as total_pages,
                    AVG(CASE 
-                               WHEN statusocr = {completedStatus} AND pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                                WHEN statusocr = {completedStatus} AND pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' 
                     THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                       ELSE NULL
                  END) as avg_speed,
@@ -153,7 +153,7 @@ namespace OcrDashboardMvc.Services
                      id::text AS Id,
                   COALESCE(circular, typeocr, 'Unknown') AS Template,
                          CASE 
-                      WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                            WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
                   THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
                   ELSE 0
                            END AS Time,
@@ -189,7 +189,7 @@ namespace OcrDashboardMvc.Services
                         TO_CHAR(created, 'YYYY-MM-DD') AS OcrDate,
                     ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                     CASE 
-                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                                WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
                     THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
                             ELSE 0
                     END AS ProcessingTime,
@@ -225,7 +225,7 @@ namespace OcrDashboardMvc.Services
                   TO_CHAR(created, 'YYYY-MM-DD') AS OcrDate,
                ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                 CASE 
-                    WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                    WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' 
                   THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
                     ELSE 0
                  END AS ProcessingTime,
@@ -234,7 +234,7 @@ namespace OcrDashboardMvc.Services
                   WHERE uploadtime::date BETWEEN @0 AND @1
                AND pagecount > 0
                   AND timeocr IS NOT NULL
-                  AND timeocr != ''
+                  AND timeocr::text != ''
                {whereClause}
               ORDER BY ProcessingTime DESC
                  LIMIT @{parameters.Count}";
@@ -332,7 +332,7 @@ namespace OcrDashboardMvc.Services
                         COUNT(*) as total,
                    SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success,
                        AVG(CASE 
-                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
                     THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                      ELSE NULL
                    END) as avg_time,
@@ -440,7 +440,7 @@ namespace OcrDashboardMvc.Services
                       SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success_files,
                          COALESCE(SUM(pagecount), 0) AS total_pages,
                              AVG(CASE 
-                             WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' AND statusocr = {completedStatus}
+                              WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' AND statusocr = {completedStatus}
                         THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                       ELSE NULL
                       END) as avg_speed,
@@ -521,7 +521,7 @@ namespace OcrDashboardMvc.Services
                           SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success_files,
                    AVG(COALESCE(accuracyrate, 0)) as avg_accuracy,
                         AVG(CASE 
-                  WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr != '' 
+                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
                  THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                           ELSE NULL
                    END) as avg_processing_time
@@ -846,4 +846,3 @@ namespace OcrDashboardMvc.Services
         }
     }
 }
-

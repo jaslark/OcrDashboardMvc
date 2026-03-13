@@ -60,3 +60,72 @@ VALUES
 ('random_008.pdf', 1, '/in/8.pdf', NOW(), NOW(), 20, 96.5, '00:03:00', 'TT-02', 1),
 ('random_009.pdf', 1, '/in/9.pdf', NOW(), NOW(), 4, 94.2, '00:00:20', NULL, 1),
 ('random_010.pdf', 0, '/in/10.pdf', NOW(), NOW(), 2, 0, NULL, NULL, 0); -- Đang chờ xử lý
+
+
+-- 1. Xóa dữ liệu cũ để tránh trùng lặp nếu cần
+TRUNCATE TABLE ocr_clos.sftpocrfile;
+
+-- 2. Dùng vòng lặp để tạo dữ liệu ngẫu nhiên cho 7 ngày gần nhất
+DO $$
+DECLARE 
+    i INT;
+    status_val INT;
+    random_pages INT;
+    random_accuracy DOUBLE PRECISION;
+    upload_date TIMESTAMP;
+    is_manual TEXT;
+    ocr_duration INTERVAL;
+BEGIN
+    FOR i IN 1..100 LOOP
+        -- Tạo ngày ngẫu nhiên trong vòng 7 ngày qua
+        upload_date := NOW() - (random() * INTERVAL '7 days');
+        
+        -- Ngẫu nhiên số trang từ 1 đến 50
+        random_pages := floor(random() * 50 + 1);
+        
+        -- Phân bổ trạng thái: 70% thành công (1), 20% lỗi (2,3), 10% đang chờ (0)
+        status_val := CASE 
+            WHEN random() < 0.7 THEN 1 
+            WHEN random() < 0.9 THEN floor(random() * 2 + 2) -- Trả về 2 hoặc 3
+            ELSE 0 
+        END;
+
+        -- Nếu thành công thì mới có accuracy và timeocr
+        IF status_val = 1 THEN
+            random_accuracy := 85 + (random() * 14.5); -- Từ 85% đến 99.5%
+            -- Giả sử mỗi trang mất từ 2 đến 5 giây
+            ocr_duration := (random_pages * (random() * 3 + 2)) * INTERVAL '1 second';
+            
+            -- 20% cơ hội là xử lý thủ công (có circular)
+            IF random() < 0.2 THEN 
+                is_manual := 'TT-' || floor(random() * 100)::text;
+            ELSE 
+                is_manual := NULL;
+            END IF;
+        ELSE
+            random_accuracy := 0;
+            ocr_duration := NULL;
+            is_manual := NULL;
+        END IF;
+
+        INSERT INTO ocr_clos.sftpocrfile (
+            filename, 
+            statusocr, 
+            uploadtime, 
+            pagecount, 
+            accuracyrate, 
+            timeocr, 
+            circular, 
+            status
+        ) VALUES (
+            'doc_batch_' || i || '.pdf',
+            status_val,
+            upload_date,
+            random_pages,
+            random_accuracy,
+            to_char(ocr_duration, 'HH24:MI:SS'),
+            is_manual,
+            CASE WHEN status_val = 1 THEN 1 ELSE 0 END
+        );
+    END LOOP;
+END $$;

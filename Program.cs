@@ -1,9 +1,10 @@
-﻿using OcrDashboardMvc.Services;
+﻿using OcrDashboardMvc.Database;
+using OcrDashboardMvc.Services;
 using OcrDashboardMvc.Repositories;
 using OcrDashboardMvc.ModelBinders;
-using PetaPoco;
 using Serilog;
 using Serilog.Events;
+using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Localization;
 
@@ -55,32 +56,23 @@ try
         options.ModelBinderProviders.Insert(0, new DateModelBinderProvider());
     });
 
-    // Đăng ký Database
-    builder.Services.AddScoped<IDatabase>(sp =>
+    builder.Services.AddHttpClient<ISqlApiProxyDatabase, SqlApiProxyDatabase>(client =>
     {
-        var configuration = sp.GetRequiredService<IConfiguration>();
-        var logger = sp.GetRequiredService<ILogger<Program>>();
-
-        var connectionString = configuration.GetConnectionString("TrungGianConnectionString")
-     ?? throw new InvalidOperationException("Không tìm thấy connection string");
-
-        try
-        {
-            var db = new Database(connectionString, "Npgsql");
-            // Kiểm tra kết nối ban đầu
-            db.ExecuteScalar<long>("SELECT COUNT(*) FROM ocr_clos.sftpocrfile");
-            return db;
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Lỗi kết nối database");
-            throw;
-        }
+        client.BaseAddress = new Uri("http://47.130.48.97:5000/");
+        client.Timeout = TimeSpan.FromMinutes(2);
+        client.DefaultRequestHeaders.Add("Accept", "application/json");
     });
 
     builder.Services.AddScoped<IDatabaseService, DatabaseService>();
     builder.Services.AddScoped<ISFTPOcrFileRepository, SFTPOcrFileRepository>();
     builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+    builder.Services.AddScoped<PetaPoco.IDatabase>(sp =>
+    {
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        // Thay đổi ProviderName phù hợp (ví dụ: "System.Data.SqlClient" hoặc "Microsoft.Data.SqlClient")
+        return new PetaPoco.Database(connectionString, "System.Data.SqlClient");
+    });
 
     var app = builder.Build();
 

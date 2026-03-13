@@ -19,7 +19,8 @@ namespace OcrDashboardMvc.Services
 
         public IDatabase GetDatabase()
         {
-            return new Database(_connectionString, "Npgsql");
-     }
+            throw new NotImplementedException("Use ISqlApiProxyDatabase directly");
+
+        }
 }
 }
