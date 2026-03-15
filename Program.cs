@@ -58,7 +58,7 @@ try
 
     builder.Services.AddHttpClient<ISqlApiProxyDatabase, SqlApiProxyDatabase>(client =>
     {
-        client.BaseAddress = new Uri("http://ocr-webservice-895703810.ap-southeast-1.elb.amazonaws.com/"); //47.130.48.97
+        client.BaseAddress = new Uri("http://localhost:5000/");
         client.Timeout = TimeSpan.FromMinutes(2);
         client.DefaultRequestHeaders.Add("Accept", "application/json");
     });
