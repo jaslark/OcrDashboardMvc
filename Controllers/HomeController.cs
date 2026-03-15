@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using OcrDashboardMvc.Models;
 using OcrDashboardMvc.Services;
 using System.Diagnostics;
@@ -11,13 +10,11 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly IDashboardService _dashboardService;
-    private readonly IConfiguration _configuration;
 
-    public HomeController(ILogger<HomeController> logger, IDashboardService dashboardService, IConfiguration configuration)
+    public HomeController(ILogger<HomeController> logger, IDashboardService dashboardService)
     {
         _logger = logger;
         _dashboardService = dashboardService;
-        _configuration = configuration;
     }
 
     public async Task<IActionResult> Index(FilterModel filters)
@@ -27,11 +24,8 @@ public class HomeController : Controller
             // Khởi tạo filters nếu null
             filters ??= new FilterModel();
 
-            // Lấy Total License Pages từ appsettings
-            var totalLicensePages = _configuration.GetValue<int>("LicenseSettings:TotalLicensePages", 10000);
-
             // Gọi một lần duy nhất để lấy tất cả dữ liệu dashboard
-            var dashboardData = await _dashboardService.GetAllDashboardDataAsync(filters, totalLicensePages);
+            var dashboardData = await _dashboardService.GetAllDashboardDataAsync(filters);
 
             var viewModel = new DashboardViewModel
             {
@@ -70,7 +64,7 @@ public class HomeController : Controller
                 LicenseData = new LicenseData
                 {
                     Used = 0,
-                    Total = 10000,
+                    Total = 0,
                     PercentUsed = 0,
                     MonthlyUsage = new List<MonthlyLicenseUsage>()
                 },

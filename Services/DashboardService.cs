@@ -6,13 +6,13 @@ namespace OcrDashboardMvc.Services
 {
     public interface IDashboardService
     {
-        Task<DashboardDataBundle> GetAllDashboardDataAsync(FilterModel filters, int totalLicensePages);
+        Task<DashboardDataBundle> GetAllDashboardDataAsync(FilterModel filters);
         Task<OcrOverviewStats> GetOcrOverviewStatsAsync(FilterModel filters);
         Task<List<ScatterData>> GetScatterDataAsync(FilterModel filters);
         Task<HeatmapData> GetHeatmapDataAsync(FilterModel filters);
         Task<List<FileRecord>> GetWorstAccuracyFilesAsync(FilterModel filters, int top = 10);
         Task<List<FileRecord>> GetSlowestFilesAsync(FilterModel filters, int top = 10);
-        Task<LicenseData> GetLicenseDataAsync(FilterModel filters, int totalLicensePages);
+        Task<LicenseData> GetLicenseDataAsync(FilterModel filters);
         Task<PerformanceTrendsData> GetPerformanceTrendsDataAsync(FilterModel filters);
         Task<TemplateAnalysisData> GetTemplateAnalysisDataAsync(FilterModel filters);
     }
@@ -45,7 +45,7 @@ namespace OcrDashboardMvc.Services
         /// <summary>
         /// Optimized method to get all dashboard data with minimal database round trips
         /// </summary>
-        public async Task<DashboardDataBundle> GetAllDashboardDataAsync(FilterModel filters, int totalLicensePages)
+        public async Task<DashboardDataBundle> GetAllDashboardDataAsync(FilterModel filters)
         {
             try
             {
@@ -59,7 +59,7 @@ namespace OcrDashboardMvc.Services
                 var scatterData = await GetScatterDataInternalAsync(fromDate, toDate, whereClause, parameters);
                 var worstAccuracyFiles = await GetWorstAccuracyFilesInternalAsync(fromDate, toDate, whereClause, parameters, 10);
                 var slowestFiles = await GetSlowestFilesInternalAsync(fromDate, toDate, whereClause, parameters, 10);
-                var licenseData = await GetLicenseDataInternalAsync(fromDate, toDate, whereClause, parameters, totalLicensePages);
+                var licenseData = await GetLicenseDataInternalAsync(fromDate, toDate, whereClause, parameters);
                 var heatmapData = await GetHeatmapDataInternalAsync(fromDate, toDate);
                 var performanceTrendsData = await GetPerformanceTrendsDataInternalAsync(fromDate, toDate, whereClause, parameters);
                 var templateAnalysisData = await GetTemplateAnalysisDataInternalAsync(fromDate, toDate);
@@ -143,28 +143,42 @@ namespace OcrDashboardMvc.Services
         }
 
         private async Task<List<ScatterData>> GetScatterDataInternalAsync(
-   DateTime fromDate, DateTime toDate, string whereClause, List<object> parameters)
+    DateTime fromDate,
+    DateTime toDate,
+    string whereClause,
+    List<object> parameters)
         {
             var sql = "";
+
             try
             {
                 sql = $@"
-                      SELECT 
-                     id::text AS Id,
-                  COALESCE(circular, typeocr, 'Unknown') AS Template,
-                         CASE 
-                            WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
-                  THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
-                  ELSE 0
-                           END AS Time,
-                       ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy
-                  FROM {TableName}
-                       WHERE uploadtime::date BETWEEN @0 AND @1
-                   AND pagecount > 0
-                     {whereClause}
-                   ORDER BY uploadtime DESC";
+        SELECT 
+            id AS id,
+            COALESCE(circular, typeocr, 'Unknown') AS template,
+            CASE 
+                WHEN pagecount > 0 AND timeocr IS NOT NULL
+                THEN ROUND((EXTRACT(EPOCH FROM timeocr) / pagecount)::numeric, 1)
+                ELSE 0
+            END AS time,
+            ROUND(COALESCE(accuracyrate, 0)::numeric, 1) AS accuracy
+        FROM public.ocr_requests
+        WHERE uploadtime BETWEEN @0 AND @1
+        AND pagecount > 0
+        {whereClause}
+        ORDER BY uploadtime DESC";
 
-                var result = await _database.FetchAsync<ScatterData>(sql, parameters.ToArray());
+                var args = new List<object> { fromDate, toDate };
+                args.AddRange(parameters);
+
+                _logger.LogInformation(sql);
+
+                foreach (var p in args)
+                {
+                    _logger.LogInformation(p.ToString());
+                }
+
+                var result = await _database.FetchAsync<ScatterData>(sql, args.ToArray());
                 return result;
             }
             catch (Exception ex)
@@ -249,9 +263,38 @@ namespace OcrDashboardMvc.Services
         }
 
         private async Task<LicenseData> GetLicenseDataInternalAsync(
-              DateTime fromDate, DateTime toDate, string whereClause, List<object> parameters, int totalLicensePages)
+              DateTime fromDate, DateTime toDate, string whereClause, List<object> parameters)
         {
-            var sql = "";
+            var sql = string.Empty;
+            var ledgerSql = @"
+                   SELECT 
+                     total_purchased,
+                     total_used
+                   FROM public.licenseledger
+                   ORDER BY seq DESC
+                   LIMIT 1";
+
+            var ledgerTotalPurchased = 0;
+            var ledgerTotalUsed = 0;
+            var hasLedgerData = false;
+
+            try
+            {
+                var ledgerResult = await _database.FetchAsync<dynamic>(ledgerSql);
+                var latestLedger = ledgerResult.FirstOrDefault();
+
+                if (latestLedger != null)
+                {
+                    ledgerTotalPurchased = ConvertToInt(latestLedger.total_purchased);
+                    ledgerTotalUsed = ConvertToInt(latestLedger.total_used);
+                    hasLedgerData = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Lỗi LicenseLedger - SQL: {SQL}", ledgerSql);
+            }
+
             try
             {
                 var completedStatus = (int)OcrFileStatus.Completed;
@@ -272,13 +315,11 @@ namespace OcrDashboardMvc.Services
 
                 var result = await _database.FetchAsync<dynamic>(sql, parameters.ToArray());
 
-                var totalUsedPages = result.Any() ? (int)(long)result.First().total_used : 0;
-                var percentUsed = totalLicensePages > 0 ? Math.Round((double)totalUsedPages / totalLicensePages * 100, 1) : 0;
-
+                var fallbackTotalUsed = result.Any() ? ConvertToInt(result.First().total_used) : 0;
                 var monthlyUsage = result.Select(item => new MonthlyLicenseUsage
                 {
                     Month = $"T{(int)(decimal)item.month_num}/{(int)(decimal)item.year}",
-                    Usage = (int)(long)item.usage
+                    Usage = ConvertToInt(item.usage)
                 }).ToList();
 
                 if (!monthlyUsage.Any())
@@ -295,10 +336,14 @@ namespace OcrDashboardMvc.Services
                     }
                 }
 
+                var used = hasLedgerData ? ledgerTotalUsed : fallbackTotalUsed;
+                var total = hasLedgerData ? ledgerTotalPurchased : 0;
+                var percentUsed = total > 0 ? Math.Round((double)used / total * 100, 1) : 0;
+
                 return new LicenseData
                 {
-                    Used = totalUsedPages,
-                    Total = totalLicensePages,
+                    Used = used,
+                    Total = total,
                     PercentUsed = percentUsed,
                     MonthlyUsage = monthlyUsage
                 };
@@ -306,11 +351,15 @@ namespace OcrDashboardMvc.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi LicenseData - SQL: {SQL}", sql);
+                var used = hasLedgerData ? ledgerTotalUsed : 0;
+                var total = hasLedgerData ? ledgerTotalPurchased : 0;
+                var percentUsed = total > 0 ? Math.Round((double)used / total * 100, 1) : 0;
+
                 return new LicenseData
                 {
-                    Used = 0,
-                    Total = totalLicensePages,
-                    PercentUsed = 0,
+                    Used = used,
+                    Total = total,
+                    PercentUsed = percentUsed,
                     MonthlyUsage = new List<MonthlyLicenseUsage>()
                 };
             }
@@ -321,27 +370,30 @@ namespace OcrDashboardMvc.Services
             var sql = "";
             try
             {
-                var templates = new List<string> { "TT200", "TT133", "TT133B01", "TT133B01A", "TT133B01B", "Unknown" };
+                var templates = new List<string> { "TT200", "TT133B01", "TT133B01a", "TT133B01b", "Unknown" };
                 var completedStatus = (int)OcrFileStatus.Completed;
 
                 sql = $@"
-                     SELECT 
-                        EXTRACT(MONTH FROM uploadtime) AS month_num,
-                      EXTRACT(YEAR FROM uploadtime) AS year,
-                 COALESCE(circular, typeocr, 'Unknown') AS template,
-                        COUNT(*) as total,
-                   SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success,
-                       AVG(CASE 
-                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
-                    THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
-                     ELSE NULL
-                   END) as avg_time,
-                       AVG(COALESCE(accuracyrate, 0)) as avg_accuracy
-                 FROM {TableName}
-                     WHERE uploadtime::date BETWEEN @0 AND @1
-                 GROUP BY EXTRACT(YEAR FROM uploadtime), EXTRACT(MONTH FROM uploadtime), 
-                   COALESCE(circular, typeocr, 'Unknown')
-                      ORDER BY year DESC, month_num DESC";
+        SELECT 
+            EXTRACT(MONTH FROM uploadtime) AS month_num,
+            EXTRACT(YEAR FROM uploadtime) AS year,
+            COALESCE(circular, typeocr, 'Unknown') AS template,
+            COUNT(*) AS total,
+            SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) AS success,
+            AVG(
+                CASE 
+                    WHEN pagecount > 0 AND timeocr IS NOT NULL
+                    THEN EXTRACT(EPOCH FROM timeocr) / pagecount
+                END
+            ) AS avg_time,
+            AVG(COALESCE(accuracyrate, 0)) AS avg_accuracy
+        FROM {TableName}
+        WHERE uploadtime BETWEEN @0 AND @1
+        GROUP BY 
+            EXTRACT(YEAR FROM uploadtime),
+            EXTRACT(MONTH FROM uploadtime),
+            COALESCE(circular, typeocr, 'Unknown')
+        ORDER BY year DESC, month_num DESC";
 
                 var allData = await _database.FetchAsync<dynamic>(sql, fromDate, toDate);
 
@@ -417,7 +469,7 @@ namespace OcrDashboardMvc.Services
                 return new HeatmapData
                 {
                     Periods = new List<string> { "Error" },
-                    Templates = new List<string> { "TT200", "TT133", "TT133B01", "TT133B01A", "TT133B01B", "Unknown" },
+                    Templates = new List<string> { "TT200", "TT133B01", "TT133B01a", "TT133B01b", "Unknown" },
                     Accuracy = new List<List<double>> { new List<double> { 0, 0, 0, 0, 0, 0 } },
                     ProcessingTime = new List<List<double>> { new List<double> { 0, 0, 0, 0, 0, 0 } }
                 };
@@ -512,7 +564,7 @@ namespace OcrDashboardMvc.Services
             try
             {
                 var completedStatus = (int)OcrFileStatus.Completed;
-                var templateOrder = new[] { "TT200", "TT133", "TT133B01", "TT133B01A", "TT133B01B", "Unknown" };
+                var templateOrder = new[] { "TT200", "TT133B01", "TT133B01a", "TT133B01b", "Unknown" };
 
                 sql = $@"
                   SELECT 
@@ -667,9 +719,9 @@ namespace OcrDashboardMvc.Services
         private (DateTime fromDate, DateTime toDate) ParseDateRange(FilterModel filters)
         {
             // Sử dụng các method từ FilterModel để đảm bảo format nhất quán
-        var fromDate = filters.GetFromDateTime();
+            var fromDate = filters.GetFromDateTime();
             var toDate = filters.GetToDateTime();
-      
+
             return (fromDate, toDate);
         }
 
@@ -785,16 +837,33 @@ namespace OcrDashboardMvc.Services
             };
         }
 
+        private static int ConvertToInt(object? value)
+        {
+            if (value == null || value is DBNull)
+            {
+                return 0;
+            }
+
+            try
+            {
+                return Convert.ToInt32(value);
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         #endregion
 
-        public async Task<LicenseData> GetLicenseDataAsync(FilterModel filters, int totalLicensePages)
+        public async Task<LicenseData> GetLicenseDataAsync(FilterModel filters)
         {
             try
             {
                 var (fromDate, toDate) = ParseDateRange(filters);
                 var whereClause = BuildWhereClause(filters);
                 var parameters = BuildParameters(filters, fromDate, toDate);
-                return await GetLicenseDataInternalAsync(fromDate, toDate, whereClause, parameters, totalLicensePages);
+                return await GetLicenseDataInternalAsync(fromDate, toDate, whereClause, parameters);
             }
             catch (Exception ex)
             {
@@ -802,7 +871,7 @@ namespace OcrDashboardMvc.Services
                 return new LicenseData
                 {
                     Used = 0,
-                    Total = totalLicensePages,
+                    Total = 0,
                     PercentUsed = 0,
                     MonthlyUsage = new List<MonthlyLicenseUsage>()
                 };

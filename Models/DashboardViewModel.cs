@@ -113,7 +113,7 @@ namespace OcrDashboardMvc.Models
         public double Accuracy { get; set; }
         public double Time { get; set; }
         public string Template { get; set; }
-        public string Id { get; set; }
+        public int Id { get; set; }
     }
 
     public class HeatmapData

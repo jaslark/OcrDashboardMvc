@@ -63,7 +63,7 @@ ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239
 
 **#Publish để chạy production:**
 
-`dotnet publish -c Release -o publish`
+`dotnet publish OcrDashboardMvc.csproj -c Release -o publish`
 
 `cd publish`
 
