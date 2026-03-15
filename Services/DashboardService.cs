@@ -51,29 +51,37 @@ namespace OcrDashboardMvc.Services
             {
                 var (fromDate, toDate) = ParseDateRange(filters);
 
-                var whereClause = BuildWhereClause(filters);
-                var parameters = BuildParameters(filters, fromDate, toDate);
+                // CỘNG NGÀY TRỰC TIẾP Ở C# để DB không phải tính toán (SARGable)
+                var toDateNextDay = toDate.AddDays(1);
 
-                // Execute queries sequentially
-                var stats = await GetOcrOverviewStatsInternalAsync(fromDate, toDate, whereClause, parameters);
-                var scatterData = await GetScatterDataInternalAsync(fromDate, toDate, whereClause, parameters);
-                var worstAccuracyFiles = await GetWorstAccuracyFilesInternalAsync(fromDate, toDate, whereClause, parameters, 10);
-                var slowestFiles = await GetSlowestFilesInternalAsync(fromDate, toDate, whereClause, parameters, 10);
-                var licenseData = await GetLicenseDataInternalAsync(fromDate, toDate, whereClause, parameters);
-                var heatmapData = await GetHeatmapDataInternalAsync(fromDate, toDate);
-                var performanceTrendsData = await GetPerformanceTrendsDataInternalAsync(fromDate, toDate, whereClause, parameters);
-                var templateAnalysisData = await GetTemplateAnalysisDataInternalAsync(fromDate, toDate);
+                var (whereClause, parameters) = BuildWhereClauseAndParameters(filters, fromDate, toDateNextDay);
+
+                // Khởi tạo tất cả các Task cùng lúc (KHÔNG AWAIT ở đây)
+                var statsTask = GetOcrOverviewStatsInternalAsync(fromDate, toDateNextDay, whereClause, parameters);
+                var scatterTask = GetScatterDataInternalAsync(fromDate, toDateNextDay, whereClause, parameters);
+                var worstAccuracyTask = GetWorstAccuracyFilesInternalAsync(fromDate, toDateNextDay, whereClause, parameters, 10);
+                var slowestTask = GetSlowestFilesInternalAsync(fromDate, toDateNextDay, whereClause, parameters, 10);
+                var licenseTask = GetLicenseDataInternalAsync(fromDate, toDateNextDay, whereClause, parameters);
+                var heatmapTask = GetHeatmapDataInternalAsync(fromDate, toDateNextDay);
+                var performanceTask = GetPerformanceTrendsDataInternalAsync(fromDate, toDateNextDay, whereClause, parameters);
+                var templateTask = GetTemplateAnalysisDataInternalAsync(fromDate, toDateNextDay);
+
+                // Chờ TẤT CẢ cùng hoàn thành (Thời gian response = thời gian của Task chạy lâu nhất)
+                await Task.WhenAll(
+                    statsTask, scatterTask, worstAccuracyTask, slowestTask,
+                    licenseTask, heatmapTask, performanceTask, templateTask
+                );
 
                 return new DashboardDataBundle
                 {
-                    Stats = stats,
-                    ScatterData = scatterData,
-                    HeatmapData = heatmapData,
-                    WorstAccuracyFiles = worstAccuracyFiles,
-                    SlowestFiles = slowestFiles,
-                    LicenseData = licenseData,
-                    PerformanceTrendsData = performanceTrendsData,
-                    TemplateAnalysisData = templateAnalysisData
+                    Stats = statsTask.Result,
+                    ScatterData = scatterTask.Result,
+                    WorstAccuracyFiles = worstAccuracyTask.Result,
+                    SlowestFiles = slowestTask.Result,
+                    LicenseData = licenseTask.Result,
+                    HeatmapData = heatmapTask.Result,
+                    PerformanceTrendsData = performanceTask.Result,
+                    TemplateAnalysisData = templateTask.Result
                 };
             }
             catch (Exception ex)
@@ -81,6 +89,53 @@ namespace OcrDashboardMvc.Services
                 _logger.LogError(ex, "Lỗi SERVICE - GetAllDashboardDataAsync: {Message}", ex.Message);
                 throw;
             }
+        }
+
+        private (string Clause, List<object> Parameters) BuildWhereClauseAndParameters(
+    FilterModel filters, DateTime fromDate, DateTime toDateNextDay)
+        {
+            var conditions = new List<string>();
+            var parameters = new List<object> { fromDate, toDateNextDay };
+            // @0 = fromDate, @1 = toDateNextDay
+
+            // Xử lý Template
+            if (!string.IsNullOrEmpty(filters.Template) && filters.Template != "all")
+            {
+                if (filters.Template == "Unknown")
+                {
+                    conditions.Add("circular IS NULL AND typeocr IS NULL");
+                }
+                else if (filters.Template == "TT133")
+                {
+                    conditions.Add($"circular = @{parameters.Count}");
+                    parameters.Add(filters.Template);
+                }
+                else
+                {
+                    conditions.Add($"typeocr = @{parameters.Count}");
+                    parameters.Add(filters.Template);
+                }
+            }
+
+            // Xử lý Status
+            if (!string.IsNullOrEmpty(filters.Status) && filters.Status != "all")
+            {
+                if (filters.Status == "manual")
+                {
+                    conditions.Add("circular IS NOT NULL");
+                }
+                else
+                {
+                    conditions.Add($"statusocr = @{parameters.Count}");
+                    parameters.Add(filters.Status == "success" ? (int)OcrFileStatus.Completed : 3);
+                }
+            }
+
+            string whereClause = conditions.Count > 0
+                ? "AND " + string.Join(" AND ", conditions)
+                : string.Empty;
+
+            return (whereClause, parameters);
         }
 
         // Internal optimized methods with pre-parsed parameters
@@ -101,13 +156,14 @@ namespace OcrDashboardMvc.Services
                   SUM(CASE WHEN circular IS NOT NULL THEN 1 ELSE 0 END) as ocr_manual,
                         COALESCE(SUM(pagecount), 0) as total_pages,
                    AVG(CASE 
-                                WHEN statusocr = {completedStatus} AND pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' 
+                                WHEN statusocr = {completedStatus} AND pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL 
                     THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                       ELSE NULL
                  END) as avg_speed,
                    AVG(CASE WHEN statusocr = {completedStatus} THEN COALESCE(accuracyrate, 0) ELSE NULL END) as avg_accuracy
                       FROM {TableName}
-                        WHERE uploadtime::date BETWEEN @0 AND @1 {whereClause}";
+                        WHERE uploadtime >= @0
+                            AND uploadtime < @1 {whereClause}";
 
                 var result = await _database.FetchAsync<dynamic>(sql, parameters.ToArray());
                 var stats = result.FirstOrDefault();
@@ -203,13 +259,14 @@ namespace OcrDashboardMvc.Services
                         TO_CHAR(created, 'YYYY-MM-DD') AS OcrDate,
                     ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                     CASE 
-                                WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
+                                WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL
                     THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
                             ELSE 0
                     END AS ProcessingTime,
                     pagecount AS Pages
                     FROM {TableName}
-                    WHERE uploadtime::date BETWEEN @0 AND @1
+                    WHERE uploadtime >= @0
+                                AND uploadtime < @1
                             AND accuracyrate IS NOT NULL
                         {whereClause}
                         ORDER BY accuracyrate ASC
@@ -239,19 +296,20 @@ namespace OcrDashboardMvc.Services
                   TO_CHAR(created, 'YYYY-MM-DD') AS OcrDate,
                ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                 CASE 
-                    WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' 
+                    WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL 
                   THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
                     ELSE 0
                  END AS ProcessingTime,
                   pagecount AS Pages
                  FROM {TableName}
-                  WHERE uploadtime::date BETWEEN @0 AND @1
-               AND pagecount > 0
+                  WHERE uploadtime >= @0
+                    AND uploadtime < @1
+                       AND pagecount > 0
                   AND timeocr IS NOT NULL
-                  AND timeocr::text != ''
+                  AND NULLIF(timeocr::text, '') IS NOT NULL
                {whereClause}
               ORDER BY ProcessingTime DESC
-                 LIMIT @{parameters.Count}";
+                 LIMIT {top}";
 
                 return await _database.FetchAsync<FileRecord>(sql, paramsCopy.ToArray());
             }
@@ -307,7 +365,8 @@ namespace OcrDashboardMvc.Services
                           EXTRACT(YEAR FROM uploadtime) AS year,
                       COALESCE(SUM(pagecount), 0) AS usage
                             FROM {TableName}
-                                  WHERE uploadtime::date BETWEEN @0 AND @1
+                                  WHERE uploadtime >= @0
+                                AND uploadtime < @1
                        AND statusocr = {completedStatus}
                          {whereClause}
                  GROUP BY EXTRACT(YEAR FROM uploadtime), EXTRACT(MONTH FROM uploadtime), TO_CHAR(uploadtime, 'TMMonth')
@@ -492,13 +551,14 @@ namespace OcrDashboardMvc.Services
                       SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success_files,
                          COALESCE(SUM(pagecount), 0) AS total_pages,
                              AVG(CASE 
-                              WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != '' AND statusocr = {completedStatus}
+                              WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL AND statusocr = {completedStatus}
                         THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                       ELSE NULL
                       END) as avg_speed,
                        AVG(COALESCE(accuracyrate, 0)) as avg_accuracy
                      FROM {TableName}
-                     WHERE uploadtime::date BETWEEN @0 AND @1
+                     WHERE uploadtime >= @0
+                            AND uploadtime < @1
                                {whereClause}
                        GROUP BY EXTRACT(YEAR FROM uploadtime), EXTRACT(MONTH FROM uploadtime)
                              ORDER BY year, month_num";
@@ -573,12 +633,13 @@ namespace OcrDashboardMvc.Services
                           SUM(CASE WHEN statusocr = {completedStatus} THEN 1 ELSE 0 END) as success_files,
                    AVG(COALESCE(accuracyrate, 0)) as avg_accuracy,
                         AVG(CASE 
-                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND timeocr::text != ''
+                        WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL
                  THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
                           ELSE NULL
                    END) as avg_processing_time
                 FROM {TableName}
-                WHERE uploadtime::date BETWEEN @0 AND @1
+                WHERE uploadtime >= @0
+                        AND uploadtime < @1
                    GROUP BY COALESCE(circular, typeocr, 'Unknown')";
 
                 var result = await _database.FetchAsync<dynamic>(sql, fromDate, toDate);
