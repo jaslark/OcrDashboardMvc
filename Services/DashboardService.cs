@@ -34,7 +34,7 @@ namespace OcrDashboardMvc.Services
     {
         private readonly ISqlApiProxyDatabase _database;
         private readonly ILogger<DashboardService> _logger;
-        private const string TableName = "public.ocr_requests";
+        private const string TableName = "ocr_clos.sftpocrfile"; //public.ocr_requests
 
         public DashboardService(ISqlApiProxyDatabase database, ILogger<DashboardService> logger)
         {
