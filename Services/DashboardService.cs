@@ -218,7 +218,7 @@ namespace OcrDashboardMvc.Services
                 ELSE 0
             END AS time,
             ROUND(COALESCE(accuracyrate, 0)::numeric, 1) AS accuracy
-        FROM public.ocr_requests
+        FROM ocr_clos.ocr_requests
         WHERE uploadtime BETWEEN @0 AND @1
         AND pagecount > 0
         {whereClause}
@@ -328,7 +328,7 @@ namespace OcrDashboardMvc.Services
                    SELECT 
                      total_purchased,
                      total_used
-                   FROM public.licenseledger
+                   FROM ocr_clos.licenseledger
                    ORDER BY seq DESC
                    LIMIT 1";
 

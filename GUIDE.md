@@ -75,9 +75,11 @@ ssh -i C:\Users\ADMIN\TrumVN.pem ubuntu@18.143.165.239   -   ssh -i C:\Users\ADM
 
 `dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5000" (http://18.143.165.239:5000)`
 
+`dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5555"`
+
 **#Nên dùng - giữ session:**
 
-`nohup dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5000" &`
+`nohup dotnet OcrDashboardMvc.dll --urls "http://0.0.0.0:5555" &`
 
 **#Sửa config**
 
