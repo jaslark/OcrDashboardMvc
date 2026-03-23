@@ -157,7 +157,7 @@ namespace OcrDashboardMvc.Services
                         COALESCE(SUM(pagecount), 0) as total_pages,
                    AVG(CASE 
                                 WHEN statusocr = {completedStatus} AND pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL 
-                    THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
+                    THEN EXTRACT(EPOCH FROM timeocr::interval) / pagecount
                       ELSE NULL
                  END) as avg_speed,
                    AVG(CASE WHEN statusocr = {completedStatus} THEN COALESCE(accuracyrate, 0) ELSE NULL END) as avg_accuracy
@@ -260,7 +260,7 @@ namespace OcrDashboardMvc.Services
                     ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                     CASE 
                                 WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL
-                    THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
+                    THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::interval) / pagecount AS numeric), 1)
                             ELSE 0
                     END AS ProcessingTime,
                     pagecount AS Pages
@@ -297,7 +297,7 @@ namespace OcrDashboardMvc.Services
                ROUND(CAST(COALESCE(accuracyrate, 0) AS numeric), 1) AS Accuracy,
                 CASE 
                     WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL 
-                  THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::time) / pagecount AS numeric), 1)
+                  THEN ROUND(CAST(EXTRACT(EPOCH FROM timeocr::interval) / pagecount AS numeric), 1)
                     ELSE 0
                  END AS ProcessingTime,
                   pagecount AS Pages
@@ -552,7 +552,7 @@ namespace OcrDashboardMvc.Services
                          COALESCE(SUM(pagecount), 0) AS total_pages,
                              AVG(CASE 
                               WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL AND statusocr = {completedStatus}
-                        THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
+                        THEN EXTRACT(EPOCH FROM timeocr::interval) / pagecount
                       ELSE NULL
                       END) as avg_speed,
                        AVG(COALESCE(accuracyrate, 0)) as avg_accuracy
@@ -634,7 +634,7 @@ namespace OcrDashboardMvc.Services
                    AVG(COALESCE(accuracyrate, 0)) as avg_accuracy,
                         AVG(CASE 
                         WHEN pagecount > 0 AND timeocr IS NOT NULL AND NULLIF(timeocr::text, '') IS NOT NULL
-                 THEN EXTRACT(EPOCH FROM timeocr::time) / pagecount
+                 THEN EXTRACT(EPOCH FROM timeocr::interval) / pagecount
                           ELSE NULL
                    END) as avg_processing_time
                 FROM {TableName}
