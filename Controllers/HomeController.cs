@@ -17,6 +17,7 @@ public class HomeController : Controller
         _dashboardService = dashboardService;
     }
 
+    [Route("dashboard")]
     public async Task<IActionResult> Index(FilterModel filters)
     {
         try
