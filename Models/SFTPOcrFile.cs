@@ -42,7 +42,7 @@ namespace OcrDashboardMvc.Models
     //    public string TimeOCR { get; set; }
     //}
 
-    [TableName("public.ocr_requests")] //ocr_clos.sftpocrfile
+    [TableName("ocr_clos.sftpocrfile")] //public.ocr_requests
     [PrimaryKey("id", AutoIncrement = true)]
     public class SFTPOcrFile : DocProTrungGianDataContext<SFTPOcrFile>
     {
